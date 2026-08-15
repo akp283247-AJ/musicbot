@@ -1,0 +1,7 @@
+providers = ["python"]
+
+[phases.setup]
+nixPkgs = ["...", "ffmpeg", "nodejs_22"]
+
+[start]
+cmd = "python bot.py"
