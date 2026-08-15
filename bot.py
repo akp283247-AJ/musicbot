@@ -305,7 +305,9 @@ async def pytgcalls_update_handler(update):
         flush=True
     )
 
-    # Remove the finished song immediately.
+    # =====================================================
+    # FINISHED SONG
+    # =====================================================
     finished = playing.pop(chat_id, None)
 
     if finished:
@@ -324,6 +326,7 @@ async def pytgcalls_update_handler(update):
 
                 if media_file.exists():
                     media_file.unlink()
+
                     print(
                         "🗑️ DELETED:",
                         str(media_file),
@@ -337,7 +340,9 @@ async def pytgcalls_update_handler(update):
                     flush=True
                 )
 
-    # Delete old NOW PLAYING message.
+    # =====================================================
+    # DELETE OLD NOW PLAYING MESSAGE
+    # =====================================================
     old_ui_id = ui_messages.pop(chat_id, None)
 
     if old_ui_id:
@@ -349,9 +354,14 @@ async def pytgcalls_update_handler(update):
         except Exception:
             pass
 
+    # =====================================================
+    # GET QUEUE
+    # =====================================================
     queue = queues.get(chat_id, [])
 
-    # No next song.
+    # =====================================================
+    # QUEUE EMPTY -> LEAVE VC
+    # =====================================================
     if not queue:
         queues.pop(chat_id, None)
 
@@ -360,10 +370,34 @@ async def pytgcalls_update_handler(update):
             chat_id,
             flush=True
         )
+
+        try:
+            await calls.leave_call(chat_id)
+
+            print(
+                "👋 LEFT VC:",
+                chat_id,
+                flush=True
+            )
+
+        except Exception as leave_error:
+            print(
+                "⚠️ LEAVE VC ERROR:",
+                repr(leave_error),
+                flush=True
+            )
+
         return
 
-    # Get next song ONLY after current stream ended.
+    # =====================================================
+    # AUTO NEXT
+    # =====================================================
     next_item = queue.pop(0)
+
+    if queue:
+        queues[chat_id] = queue
+    else:
+        queues.pop(chat_id, None)
 
     print(
         "⏭️ AUTO NEXT:",
@@ -372,16 +406,41 @@ async def pytgcalls_update_handler(update):
     )
 
     try:
+        # Give PyTgCalls a moment to finish the previous stream.
+        await asyncio.sleep(0.5)
+
         await start_song(
             chat_id,
             next_item
         )
+
+        print(
+            "▶️ AUTO NEXT PLAYING:",
+            next_item.get("title"),
+            flush=True
+        )
+
     except Exception as e:
         print(
             "❌ AUTO NEXT ERROR:",
             repr(e),
             flush=True
         )
+
+        # If next song cannot start, clean its downloaded file.
+        media_path = next_item.get("path")
+
+        if media_path:
+            try:
+                Path(media_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        # Try leaving VC instead of getting stuck.
+        try:
+            await calls.leave_call(chat_id)
+        except Exception:
+            pass
 
 
 # =========================
@@ -598,14 +657,49 @@ async def stop(event):
     )
 
     try:
-        playing.pop(chat_id, None)
-        queues.pop(chat_id, None)
+        # Delete current playing file.
+        current = playing.pop(chat_id, None)
+
+        if current:
+            media_path = current.get("path")
+
+            if media_path:
+                try:
+                    Path(media_path).unlink(missing_ok=True)
+
+                    print(
+                        "🗑️ STOP DELETED:",
+                        media_path,
+                        flush=True
+                    )
+
+                except Exception as delete_error:
+                    print(
+                        "⚠️ STOP FILE DELETE ERROR:",
+                        repr(delete_error),
+                        flush=True
+                    )
+
+        # Delete all queued files.
+        queue = queues.pop(chat_id, [])
+
+        for item in queue:
+            media_path = item.get("path")
+
+            if media_path:
+                try:
+                    Path(media_path).unlink(missing_ok=True)
+                except Exception:
+                    pass
 
         old_ui_id = ui_messages.pop(chat_id, None)
 
         if old_ui_id:
             try:
-                await bot.delete_messages(chat_id, old_ui_id)
+                await bot.delete_messages(
+                    chat_id,
+                    old_ui_id
+                )
             except Exception:
                 pass
 
@@ -614,7 +708,8 @@ async def stop(event):
         await event.respond(
             "⏹️ **Music stopped.**\n\n"
             "🗑️ **Queue cleared.**\n"
-            "🎧 **AJ Music Bot**"
+            "🧹 **Downloaded files cleaned.**\n"
+            "🎧 **AJ MUSIC BOT**"
         )
 
     except Exception as e:
@@ -677,13 +772,28 @@ async def now_playing_buttons_handler(event):
             await event.answer("▶️ Resumed")
 
         elif action == "stop":
-            task = ui_tasks.pop(chat_id, None)
+            current = playing.pop(chat_id, None)
 
-            if task:
-                task.cancel()
+            if current:
+                media_path = current.get("path")
 
-            playing.pop(chat_id, None)
-            queues.pop(chat_id, None)
+                if media_path:
+                    try:
+                        Path(media_path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+
+            queue = queues.pop(chat_id, [])
+
+            for item in queue:
+                media_path = item.get("path")
+
+                if media_path:
+                    try:
+                        Path(media_path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+
             ui_messages.pop(chat_id, None)
 
             await calls.leave_call(chat_id)
