@@ -42,6 +42,57 @@ calls = PyTgCalls(assistant)
 
 
 # =========================
+# FRIENDLY USER ERRORS
+# =========================
+def friendly_error(error):
+    text = str(error).lower()
+
+    if (
+        "could not find the input entity" in text
+        or "peerchannel" in text
+    ):
+        return (
+            "❌ **VC start failed.**\n\n"
+            "👤 **Pehle Assistant ko group mein add karo:**\n"
+            "@aj_music_assistantt\n\n"
+            "Telegram group ke **Add Members** option se "
+            "Assistant ko add karo.\n\n"
+            "Phir dobara `/play` try karo.\n\n"
+            "🎧 **AJ MUSIC**"
+        )
+
+    if (
+        "forbidden" in text
+        or "not enough rights" in text
+        or "chatadminrequired" in text
+    ):
+        return (
+            "❌ **VC start failed.**\n\n"
+            "🔐 Bot/Assistant ke paas required permission nahi hai.\n\n"
+            "👤 Assistant:\n"
+            "@aj_music_assistantt\n\n"
+            "Assistant ko group mein add karke required "
+            "permissions check karo."
+        )
+
+    if (
+        "yt-dlp failed" in text
+        or "unable to download" in text
+        or "403 forbidden" in text
+    ):
+        return (
+            "❌ **Song start failed.**\n\n"
+            "🎵 Ye song abhi download nahi ho saka.\n"
+            "Koi doosra song ya YouTube link try karo."
+        )
+
+    return (
+        "❌ **Song start failed.**\n\n"
+        "Thodi der baad dobara try karo."
+    )
+
+
+# =========================
 # DOWNLOAD MEDIA
 # =========================
 def download_media(query, video=False):
@@ -472,12 +523,19 @@ async def start(event):
 
     await event.respond(
         "🎧 **AJ MUSIC BOT**\n\n"
-        "🎵 Your group music assistant\n"
-        "▶️ Play YouTube songs in voice chat\n"
+        "🎵 Your Group Music Assistant\n"
+        "▶️ YouTube songs in Voice Chat\n"
         "📋 Queue • ⏭️ Auto Next • ⏹️ Stop\n\n"
-        "🤖 **Bot:** @aj_music_1bot\n"
-        "👤 **Assistant:** @aj_music_assistantt\n\n"
-        "👇 **Setup ke liye button choose karo:**",
+        "🤖 **Music Bot**\n"
+        "@aj_music_1bot\n\n"
+        "👤 **VC Assistant**\n"
+        "@aj_music_assistantt\n\n"
+        "⚠️ **Important Setup**\n"
+        "Assistant ko group ke **Add Members** option se "
+        "add karo.\n\n"
+        "Agar Assistant group mein nahi hoga to "
+        "Voice Chat start nahi ho payega.\n\n"
+        "🎵 **AJ MUSIC — Your Group Music Assistant**",
         buttons=buttons
     )
 
@@ -631,15 +689,17 @@ async def _handle_play(event, video=False):
         )
 
     except Exception as e:
+        # Full technical error stays in server logs only.
         print(
             "❌ PLAY ERROR:",
             repr(e),
             flush=True
         )
 
+        # User gets only a clean readable message.
         try:
             await status.edit(
-                f"❌ **Error:**\n`{str(e)[:1500]}`"
+                friendly_error(e)
             )
         except Exception:
             pass
