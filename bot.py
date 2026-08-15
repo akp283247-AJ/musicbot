@@ -691,7 +691,9 @@ async def _handle_play(event, video=False):
     except Exception as e:
         # Full technical error stays in server logs only.
         print(
-            "❌ PLAY ERROR: Song start failed. Technical details hidden from user.",
+            "❌ PLAY ERROR:",
+            type(e).__name__,
+            str(e),
             flush=True
         )
 
