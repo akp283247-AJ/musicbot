@@ -1,7 +1,12 @@
-providers = ["python"]
+[providers]
+python = "3.12"
+nodejs = "22"
 
 [phases.setup]
-nixPkgs = ["...", "ffmpeg", "nodejs_22"]
+nixPkgs = ["ffmpeg", "nodejs_22"]
+
+[phases.install]
+cmds = ["python -m pip install --upgrade pip"]
 
 [start]
 cmd = "python bot.py"
