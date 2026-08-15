@@ -1,2 +1,15 @@
 [phases.setup]
-nixPkgs = ["...", "deno", "ffmpeg"]
+nixPkgs = ["ffmpeg"]
+
+[phases.install]
+cmds = [
+  "pip install -U 'yt-dlp[default]'",
+  "curl -fsSL https://deno.land/install.sh | sh"
+]
+
+[phases.build]
+cmds = [
+  "/root/.deno/bin/deno --version",
+  "ffmpeg -version",
+  "yt-dlp --version"
+]
