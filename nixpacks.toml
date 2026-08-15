@@ -1,5 +1,3 @@
-providers = ["...", "python"]
-
 [phases.setup]
 nixPkgs = ["...", "deno", "ffmpeg"]
 
