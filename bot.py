@@ -65,8 +65,6 @@ def download_media(query, video=False):
 
     cmd = [
         "yt-dlp",
-        "--js-runtimes", "deno",
-        "--remote-components", "ejs:github",
         "-f", fmt,
         "--no-playlist",
         "--no-warnings",
