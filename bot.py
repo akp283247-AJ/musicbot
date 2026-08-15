@@ -68,6 +68,7 @@ def download_media(query, video=False):
         "yt-dlp",
         "--js-runtimes", "node",
         "--remote-components", "ejs:github",
+        "--extractor-args", "youtube:player_client=web_embedded",
         "-f", fmt,
         "--no-playlist",
         "--no-warnings",
