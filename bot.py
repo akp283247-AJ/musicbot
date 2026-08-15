@@ -83,10 +83,15 @@ def download_media(query, video=False):
 
     result = subprocess.run(
         cmd,
-        stdout=subprocess.PIPE, stderr=None,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True,
-        check=True,
+        check=False,
     )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            "yt-dlp failed:\n" + result.stdout[-4000:]
+        )
 
     lines = [
         line.strip()
