@@ -70,7 +70,7 @@ def download_media(query, video=False):
         "-f", fmt,
         "--no-playlist",
         "--no-warnings",
-        "--quiet",
+        "--verbose",
         "--print", "before_dl:%(title)s",
         "--print", "before_dl:%(duration)s",
         "--print", "before_dl:%(thumbnail)s",
@@ -83,7 +83,7 @@ def download_media(query, video=False):
 
     result = subprocess.run(
         cmd,
-        capture_output=True,
+        stdout=subprocess.PIPE, stderr=None,
         text=True,
         check=True,
     )
