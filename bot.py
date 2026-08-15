@@ -1,5 +1,6 @@
 import os
 import asyncio
+from pathlib import Path
 import yt_dlp
 
 from dotenv import load_dotenv
@@ -70,7 +71,7 @@ def download_media(query, video=False):
         "-f", fmt,
         "--no-playlist",
         "--no-warnings",
-        "--verbose",
+        "--quiet",
         "--print", "before_dl:%(title)s",
         "--print", "before_dl:%(duration)s",
         "--print", "before_dl:%(thumbnail)s",
@@ -136,6 +137,7 @@ def download_video(query):
 playing = {}
 queues = {}
 ui_messages = {}
+ui_tasks = {}
 
 
 def format_time(seconds):
@@ -578,7 +580,14 @@ async def stop(event):
     try:
         playing.pop(chat_id, None)
         queues.pop(chat_id, None)
-        ui_messages.pop(chat_id, None)
+
+        old_ui_id = ui_messages.pop(chat_id, None)
+
+        if old_ui_id:
+            try:
+                await bot.delete_messages(chat_id, old_ui_id)
+            except Exception:
+                pass
 
         await calls.leave_call(chat_id)
 
@@ -598,6 +607,28 @@ async def stop(event):
         await event.respond(
             f"❌ `{str(e)[:1000]}`"
         )
+
+
+# =========================
+# RESET
+# =========================
+@bot.on(events.NewMessage(pattern=r"^/reset(?:\\s|$)"))
+async def reset(event):
+    print(
+        "🔄 RESET RECEIVED:",
+        event.chat_id,
+        flush=True
+    )
+
+    await event.respond(
+        "🔄 **Bot reset ho raha hai...**\\n\\n"
+        "⏳ Thodi der me automatically wapas ON hoga."
+    )
+
+    await asyncio.sleep(1)
+
+    # Railway process ko restart karega.
+    os._exit(0)
 
 
 # =========================
