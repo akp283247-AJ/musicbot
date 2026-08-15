@@ -1,5 +1,6 @@
 import os
 import asyncio
+import time
 from pathlib import Path
 import yt_dlp
 
@@ -225,23 +226,41 @@ def now_playing_text(chat_id):
 
     if not item:
         return (
-            "🎧 **AJ Music Bot**\n\n"
+            "🎧 **AJ MUSIC BOT**\n\n"
             "📭 Nothing is playing."
         )
 
     mode = "🎬 VIDEO" if item.get("video") else "🎵 AUDIO"
 
+    total = int(item.get("duration") or 0)
+
+    started_at = item.get("started_at")
+    paused_at = item.get("paused_at")
+
+    if paused_at:
+        elapsed = int(item.get("position", 0))
+    elif started_at:
+        elapsed = int(item.get("position", 0) + (time.time() - started_at))
+    else:
+        elapsed = int(item.get("position", 0))
+
+    elapsed = max(0, min(elapsed, total if total else elapsed))
+
     return (
         f"{mode} **NOW PLAYING**\n\n"
         f"🎶 **{item['title']}**\n"
-        f"⏱️ `{format_time(item.get('duration', 0))}`\n\n"
+        f"⏱️ **{format_time(elapsed)} / {format_time(total)}**\n\n"
         f"👤 **Requested by:** {requester_text(item)}\n\n"
-        "🎧 **AJ Music Bot**"
+        "🎧 **AJ MUSIC BOT**"
     )
 
 
 def now_playing_buttons():
     return [
+        [
+            Button.inline("⏪ -30s", b"back30"),
+            Button.inline("⏩ +30s", b"forward30"),
+        ],
         [
             Button.inline("⏸️ Pause", b"pause"),
             Button.inline("▶️ Resume", b"resume"),
@@ -337,6 +356,8 @@ async def start_song(chat_id, item, old_message=None):
 
     item["position"] = 0
     item["paused"] = False
+    item["started_at"] = time.time()
+    item.pop("paused_at", None)
 
     playing[chat_id] = item
 
@@ -739,6 +760,210 @@ async def vplay(event):
 
 
 # =========================
+# SEEK / SKIP HELPERS
+# =========================
+def parse_seek_time(value):
+    value = value.strip()
+
+    if value.isdigit():
+        return int(value)
+
+    parts = value.split(":")
+
+    try:
+        if len(parts) == 2:
+            minutes = int(parts[0])
+            seconds = int(parts[1])
+            return minutes * 60 + seconds
+
+        if len(parts) == 3:
+            hours = int(parts[0])
+            minutes = int(parts[1])
+            seconds = int(parts[2])
+            return hours * 3600 + minutes * 60 + seconds
+    except ValueError:
+        return None
+
+    return None
+
+
+async def seek_song(chat_id, seconds):
+    item = playing.get(chat_id)
+
+    if not item:
+        return False, "📭 Nothing is playing."
+
+    duration = int(item.get("duration") or 0)
+
+    if duration <= 0:
+        return False, "❌ Song duration available nahi hai."
+
+    seconds = max(0, min(int(seconds), duration - 1))
+
+    source = item.get("path")
+
+    if not source or not Path(source).exists():
+        return False, "❌ Current song file available nahi hai."
+
+    import subprocess
+    import tempfile
+
+    suffix = ".mp4" if item.get("video") else ".mp3"
+    temp_path = Path(
+        tempfile.gettempdir()
+    ) / f"aj_seek_{chat_id}_{int(time.time())}{suffix}"
+
+    try:
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-ss",
+            str(seconds),
+            "-i",
+            source,
+            "-c",
+            "copy",
+            str(temp_path),
+        ]
+
+        result = await asyncio.to_thread(
+            subprocess.run,
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        if result.returncode != 0 or not temp_path.exists():
+            return False, "❌ Seek failed. Song ko dobara try karo."
+
+        await calls.play(
+            chat_id,
+            MediaStream(str(temp_path))
+        )
+
+        item["position"] = seconds
+        item["started_at"] = time.time()
+        item["paused"] = False
+        item.pop("paused_at", None)
+
+        old_path = item.get("seek_path")
+
+        if old_path:
+            try:
+                Path(old_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        item["seek_path"] = str(temp_path)
+
+        return True, None
+
+    except Exception as e:
+        print(
+            "❌ SEEK ERROR:",
+            repr(e),
+            flush=True
+        )
+
+        try:
+            temp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+        return False, "❌ Seek failed. Song ko dobara try karo."
+
+
+# =========================
+# SKIP COMMAND
+# =========================
+@bot.on(events.NewMessage(pattern=r"^/skip(?:\\s|$)"))
+async def skip_command(event):
+    chat_id = event.chat_id
+
+    try:
+        await event.delete()
+    except Exception:
+        pass
+
+    if chat_id not in playing:
+        return
+
+    queue = queues.get(chat_id, [])
+
+    if not queue:
+        try:
+            await calls.leave_call(chat_id)
+        except Exception:
+            pass
+
+        playing.pop(chat_id, None)
+        return
+
+    current = playing.pop(chat_id, None)
+
+    if current:
+        try:
+            Path(current.get("path", "")).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    next_item = queue.pop(0)
+
+    if not queue:
+        queues.pop(chat_id, None)
+
+    try:
+        await start_song(chat_id, next_item)
+
+    except Exception as e:
+        print(
+            "❌ SKIP ERROR:",
+            repr(e),
+            flush=True
+        )
+
+
+# =========================
+# SEEK COMMAND
+# =========================
+@bot.on(events.NewMessage(pattern=r"^/seek(?:\\s|$)"))
+async def seek_command(event):
+    parts = event.raw_text.split(maxsplit=1)
+
+    try:
+        await event.delete()
+    except Exception:
+        pass
+
+    if len(parts) < 2:
+        msg = await event.respond(
+            "❌ **Time do.**\n\n"
+            "Example: `/seek 1:30`\n"
+            "Ya: `/seek 90`"
+        )
+        asyncio.create_task(delete_later(msg, 8))
+        return
+
+    seconds = parse_seek_time(parts[1])
+
+    if seconds is None:
+        msg = await event.respond(
+            "❌ **Invalid time.**\n\n"
+            "Example: `/seek 1:30`"
+        )
+        asyncio.create_task(delete_later(msg, 8))
+        return
+
+    ok, error = await seek_song(chat_id, seconds)
+
+    if not ok:
+        msg = await event.respond(error)
+        asyncio.create_task(delete_later(msg, 8))
+        return
+
+
+# =========================
 # STOP
 # =========================
 @bot.on(events.NewMessage(pattern=r"^/stop(?:\s|$)"))
@@ -854,7 +1079,16 @@ async def now_playing_buttons_handler(event):
             await calls.pause(chat_id)
 
             if chat_id in playing:
-                playing[chat_id]["paused"] = True
+                item = playing[chat_id]
+
+                if item.get("started_at"):
+                    item["position"] = int(
+                        item.get("position", 0)
+                        + (time.time() - item["started_at"])
+                    )
+
+                item["paused"] = True
+                item["paused_at"] = time.time()
 
             await event.answer("⏸️ Paused")
 
@@ -862,9 +1096,80 @@ async def now_playing_buttons_handler(event):
             await calls.resume(chat_id)
 
             if chat_id in playing:
-                playing[chat_id]["paused"] = False
+                item = playing[chat_id]
+
+                item["paused"] = False
+                item["started_at"] = time.time()
+
+                item.pop("paused_at", None)
 
             await event.answer("▶️ Resumed")
+
+        elif action == "back30":
+            item = playing.get(chat_id)
+
+            if not item:
+                await event.answer(
+                    "📭 Nothing is playing.",
+                    alert=True
+                )
+                return
+
+            current = int(item.get("position", 0))
+
+            if not item.get("paused") and item.get("started_at"):
+                current += int(
+                    time.time() - item["started_at"]
+                )
+
+            target = max(0, current - 30)
+
+            ok, error = await seek_song(
+                chat_id,
+                target
+            )
+
+            if not ok:
+                await event.answer(
+                    error or "❌ Seek failed.",
+                    alert=True
+                )
+                return
+
+            await event.answer("⏪ 30 seconds back")
+
+        elif action == "forward30":
+            item = playing.get(chat_id)
+
+            if not item:
+                await event.answer(
+                    "📭 Nothing is playing.",
+                    alert=True
+                )
+                return
+
+            current = int(item.get("position", 0))
+
+            if not item.get("paused") and item.get("started_at"):
+                current += int(
+                    time.time() - item["started_at"]
+                )
+
+            target = current + 30
+
+            ok, error = await seek_song(
+                chat_id,
+                target
+            )
+
+            if not ok:
+                await event.answer(
+                    error or "❌ Seek failed.",
+                    alert=True
+                )
+                return
+
+            await event.answer("⏩ 30 seconds forward")
 
         elif action == "stop":
             current = playing.pop(chat_id, None)
