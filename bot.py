@@ -673,11 +673,6 @@ async def now_playing_buttons_handler(event):
             await event.answer("▶️ Resumed")
 
         elif action == "stop":
-            task = ui_tasks.pop(chat_id, None)
-
-            if task:
-                task.cancel()
-
             playing.pop(chat_id, None)
             queues.pop(chat_id, None)
             ui_messages.pop(chat_id, None)
