@@ -72,6 +72,7 @@ def download_media(query, video=False):
         "--no-playlist",
         "--no-warnings",
         "--quiet",
+        "--force-ipv4",
         "--print", "before_dl:%(title)s",
         "--print", "before_dl:%(duration)s",
         "--print", "before_dl:%(thumbnail)s",
@@ -359,6 +360,21 @@ async def pytgcalls_update_handler(update):
             chat_id,
             flush=True
         )
+
+        try:
+            await calls.leave_call(chat_id)
+            print(
+                "👋 LEFT VOICE CHAT:",
+                chat_id,
+                flush=True
+            )
+        except Exception as leave_error:
+            print(
+                "⚠️ LEAVE CALL ERROR:",
+                repr(leave_error),
+                flush=True
+            )
+
         return
 
     # Get next song ONLY after current stream ended.
@@ -693,8 +709,27 @@ async def now_playing_buttons_handler(event):
                 )
                 return
 
-            # Remove current song.
-            playing.pop(chat_id, None)
+            # Remove current song and delete its downloaded file.
+            current = playing.pop(chat_id, None)
+
+            if current:
+                media_path = current.get("path")
+                if media_path:
+                    try:
+                        media_file = Path(media_path)
+                        if media_file.exists():
+                            media_file.unlink()
+                            print(
+                                "🗑️ SKIP DELETED:",
+                                str(media_file),
+                                flush=True
+                            )
+                    except Exception as cleanup_error:
+                        print(
+                            "⚠️ SKIP FILE DELETE ERROR:",
+                            repr(cleanup_error),
+                            flush=True
+                        )
 
             # Start next queued song immediately.
             next_item = queue.pop(0)

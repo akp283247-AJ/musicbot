@@ -1,5 +1,5 @@
 telethon
 py-tgcalls==2.3.3
-yt-dlp
+yt-dlp[default]
 python-dotenv
 tgcrypto

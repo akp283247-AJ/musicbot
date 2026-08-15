@@ -1,5 +1,18 @@
 [phases.setup]
-nixPkgs = ["...", "ffmpeg", "nodejs_22"]
+nixPkgs = ["ffmpeg", "nodejs_22"]
+
+[phases.install]
+cmds = [
+  "python -m pip install --upgrade pip",
+  "python -m pip install -U 'yt-dlp[default]'"
+]
+
+[phases.build]
+cmds = [
+  "node --version",
+  "ffmpeg -version",
+  "yt-dlp --version"
+]
 
 [start]
 cmd = "python bot.py"
