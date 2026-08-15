@@ -535,9 +535,22 @@ async def start(event):
         "add karo.\n\n"
         "Agar Assistant group mein nahi hoga to "
         "Voice Chat start nahi ho payega.\n\n"
+        "👑 **OWNER**\n"
+        "@ajaysuchi\n\n"
         "🎵 **AJ MUSIC — Your Group Music Assistant**",
         buttons=buttons
     )
+
+
+# =========================
+# AUTO DELETE TEMP MESSAGE
+# =========================
+async def delete_later(message, delay=10):
+    try:
+        await asyncio.sleep(delay)
+        await message.delete()
+    except Exception:
+        pass
 
 
 # =========================
@@ -561,6 +574,12 @@ async def _handle_play(event, video=False):
         return
 
     query = parts[1].strip()
+
+    # User ka /play /vplay command delete.
+    try:
+        await event.delete()
+    except Exception:
+        pass
 
     status = await event.respond(
         "🔎 **Searching...**\n"
@@ -600,6 +619,7 @@ async def _handle_play(event, video=False):
                 f"🎵 This song: `{format_time(song_duration)}`\n\n"
                 "🎧 **AJ Music Bot**"
             )
+            asyncio.create_task(delete_later(status, 10))
             return
 
         sender = await event.get_sender()
@@ -702,6 +722,7 @@ async def _handle_play(event, video=False):
             await status.edit(
                 friendly_error(e)
             )
+            asyncio.create_task(delete_later(status, 10))
         except Exception:
             pass
 
