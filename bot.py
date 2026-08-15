@@ -406,11 +406,30 @@ async def debug_all(event):
 async def start(event):
     print("🚀 START RECEIVED:", event.chat_id, flush=True)
 
+    buttons = [
+        [
+            Button.url(
+                "🤖 Add AJ Music Bot",
+                "https://t.me/aj_music_1bot?startgroup=true"
+            )
+        ],
+        [
+            Button.url(
+                "👤 Add Assistant",
+                "https://t.me/aj_music_assistantt"
+            )
+        ]
+    ]
+
     await event.respond(
-        "🎵 **AJ Music Bot Online!**\n\n"
-        "`/play song name`\n"
-        "`/play YouTube URL`\n"
-        "`/stop`"
+        "🎧 **AJ MUSIC BOT**\n\n"
+        "🎵 Your group music assistant\n"
+        "▶️ Play YouTube songs in voice chat\n"
+        "📋 Queue • ⏭️ Auto Next • ⏹️ Stop\n\n"
+        "🤖 **Bot:** @aj_music_1bot\n"
+        "👤 **Assistant:** @aj_music_assistantt\n\n"
+        "👇 **Setup ke liye button choose karo:**",
+        buttons=buttons
     )
 
 
