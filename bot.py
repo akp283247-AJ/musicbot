@@ -47,48 +47,49 @@ calls = PyTgCalls(assistant)
 def friendly_error(error):
     text = str(error).lower()
 
+    # Assistant / VC access problem
     if (
         "could not find the input entity" in text
         or "peerchannel" in text
-    ):
-        return (
-            "❌ **VC start failed.**\n\n"
-            "👤 **Pehle Assistant ko group mein add karo:**\n"
-            "@aj_music_assistantt\n\n"
-            "Telegram group ke **Add Members** option se "
-            "Assistant ko add karo.\n\n"
-            "Phir dobara `/play` try karo.\n\n"
-            "🎧 **AJ MUSIC**"
-        )
-
-    if (
-        "forbidden" in text
+        or "peeridinvalid" in text
+        or "chat not found" in text
+        or "group call" in text
+        or "voice chat" in text
+        or "not a participant" in text
+        or "participant" in text
+        or "forbidden" in text
         or "not enough rights" in text
         or "chatadminrequired" in text
     ):
         return (
             "❌ **VC start failed.**\n\n"
-            "🔐 Bot/Assistant ke paas required permission nahi hai.\n\n"
-            "👤 Assistant:\n"
+            "👤 **Assistant group mein add nahi hai ya VC access nahi mil raha.**\n\n"
+            "👉 Pehle ye Assistant group mein add karo:\n"
             "@aj_music_assistantt\n\n"
-            "Assistant ko group mein add karke required "
-            "permissions check karo."
+            "📌 Telegram → Group → Add Members → "
+            "@aj_music_assistantt\n\n"
+            "Phir `/play` dobara try karo.\n\n"
+            "🎧 **AJ MUSIC**"
         )
 
+    # YouTube / download problem
     if (
         "yt-dlp failed" in text
         or "unable to download" in text
         or "403 forbidden" in text
+        or "sign in to confirm" in text
     ):
         return (
             "❌ **Song start failed.**\n\n"
             "🎵 Ye song abhi download nahi ho saka.\n"
-            "Koi doosra song ya YouTube link try karo."
+            "🔄 Koi doosra song ya YouTube link try karo.\n\n"
+            "🎧 **AJ MUSIC**"
         )
 
     return (
         "❌ **Song start failed.**\n\n"
-        "Thodi der baad dobara try karo."
+        "🔄 Thodi der baad dobara try karo.\n\n"
+        "🎧 **AJ MUSIC**"
     )
 
 
