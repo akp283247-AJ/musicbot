@@ -72,7 +72,6 @@ def download_media(query, video=False):
         "--no-playlist",
         "--no-warnings",
         "--quiet",
-        "--force-ipv4",
         "--print", "before_dl:%(title)s",
         "--print", "before_dl:%(duration)s",
         "--print", "before_dl:%(thumbnail)s",
@@ -360,21 +359,6 @@ async def pytgcalls_update_handler(update):
             chat_id,
             flush=True
         )
-
-        try:
-            await calls.leave_call(chat_id)
-            print(
-                "👋 LEFT VOICE CHAT:",
-                chat_id,
-                flush=True
-            )
-        except Exception as leave_error:
-            print(
-                "⚠️ LEAVE CALL ERROR:",
-                repr(leave_error),
-                flush=True
-            )
-
         return
 
     # Get next song ONLY after current stream ended.
@@ -626,6 +610,27 @@ async def stop(event):
 
 
 # =========================
+# RESET
+# =========================
+@bot.on(events.NewMessage(pattern=r"^/reset(?:\\s|$)"))
+async def reset(event):
+    print(
+        "🔄 RESET RECEIVED:",
+        event.chat_id,
+        flush=True
+    )
+
+    await event.respond(
+        "🔄 **Bot reset ho raha hai...**\\n\\n"
+        "⏳ Thodi der me automatically wapas ON hoga."
+    )
+
+    await asyncio.sleep(1)
+
+    # Railway process ko restart karega.
+    os._exit(0)
+
+
 # =========================
 # NOW PLAYING BUTTONS
 # =========================
@@ -652,6 +657,11 @@ async def now_playing_buttons_handler(event):
             await event.answer("▶️ Resumed")
 
         elif action == "stop":
+            task = ui_tasks.pop(chat_id, None)
+
+            if task:
+                task.cancel()
+
             playing.pop(chat_id, None)
             queues.pop(chat_id, None)
             ui_messages.pop(chat_id, None)
@@ -683,27 +693,8 @@ async def now_playing_buttons_handler(event):
                 )
                 return
 
-            # Remove current song and delete its downloaded file.
-            current = playing.pop(chat_id, None)
-
-            if current:
-                media_path = current.get("path")
-                if media_path:
-                    try:
-                        media_file = Path(media_path)
-                        if media_file.exists():
-                            media_file.unlink()
-                            print(
-                                "🗑️ SKIP DELETED:",
-                                str(media_file),
-                                flush=True
-                            )
-                    except Exception as cleanup_error:
-                        print(
-                            "⚠️ SKIP FILE DELETE ERROR:",
-                            repr(cleanup_error),
-                            flush=True
-                        )
+            # Remove current song.
+            playing.pop(chat_id, None)
 
             # Start next queued song immediately.
             next_item = queue.pop(0)
