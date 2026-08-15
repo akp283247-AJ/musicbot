@@ -626,27 +626,6 @@ async def stop(event):
 
 
 # =========================
-# RESET
-# =========================
-@bot.on(events.NewMessage(pattern=r"^/reset(?:\\s|$)"))
-async def reset(event):
-    print(
-        "🔄 RESET RECEIVED:",
-        event.chat_id,
-        flush=True
-    )
-
-    await event.respond(
-        "🔄 **Bot reset ho raha hai...**\\n\\n"
-        "⏳ Thodi der me automatically wapas ON hoga."
-    )
-
-    await asyncio.sleep(1)
-
-    # Railway process ko restart karega.
-    os._exit(0)
-
-
 # =========================
 # NOW PLAYING BUTTONS
 # =========================
