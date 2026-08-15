@@ -1,0 +1,8 @@
+.env
+*.session
+*.session-journal
+__pycache__/
+downloads/
+*.pyc
+bot.py.SAFE_BACKUP_*
+bot.py.*
