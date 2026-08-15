@@ -3,11 +3,5 @@ providers = ["...", "python"]
 [phases.setup]
 nixPkgs = ["...", "deno", "ffmpeg"]
 
-[phases.install]
-cmds = ["python -m pip install -U yt-dlp"]
-
-[phases.build]
-cmds = ["python --version", "deno --version", "ffmpeg -version", "yt-dlp --version"]
-
 [start]
 cmd = "python bot.py"
