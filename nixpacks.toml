@@ -1,17 +1,15 @@
 [phases.setup]
-nixPkgs = ["ffmpeg", "curl", "unzip"]
-
-[phases.install]
-cmds = [
-  "python -m pip install -U 'yt-dlp[default]'",
-  "curl -L https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip -o /tmp/deno.zip",
-  "unzip -o /tmp/deno.zip -d /usr/local/bin",
-  "chmod +x /usr/local/bin/deno"
+nixPkgs = [
+  "python312",
+  "yt-dlp",
+  "deno",
+  "ffmpeg"
 ]
 
 [phases.build]
 cmds = [
+  "python --version",
+  "yt-dlp --version",
   "deno --version",
-  "ffmpeg -version",
-  "yt-dlp --version"
+  "ffmpeg -version"
 ]
