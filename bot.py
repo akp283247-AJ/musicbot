@@ -17,6 +17,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 TELETHON_SESSION = os.getenv("TELETHON_SESSION")
 
 DOWNLOAD_DIR = "/root/musicbot/downloads"
+MAX_SONG_DURATION = 60 * 60  # 60 minutes maximum
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # =========================
@@ -296,7 +297,7 @@ async def start_song(chat_id, item, old_message=None):
 
 
 @calls.on_update(fl.stream_end())
-async def pytgcalls_update_handler(update):
+async def pytgcalls_update_handler(_, update):
     chat_id = update.chat_id
 
     print(
@@ -305,9 +306,7 @@ async def pytgcalls_update_handler(update):
         flush=True
     )
 
-    # =====================================================
-    # FINISHED SONG
-    # =====================================================
+    # Take the finished item out of playing.
     finished = playing.pop(chat_id, None)
 
     if finished:
@@ -317,7 +316,7 @@ async def pytgcalls_update_handler(update):
             flush=True
         )
 
-        # Delete downloaded media after playback finishes.
+        # Delete finished downloaded media.
         media_path = finished.get("path")
 
         if media_path:
@@ -326,7 +325,6 @@ async def pytgcalls_update_handler(update):
 
                 if media_file.exists():
                     media_file.unlink()
-
                     print(
                         "🗑️ DELETED:",
                         str(media_file),
@@ -340,9 +338,7 @@ async def pytgcalls_update_handler(update):
                     flush=True
                 )
 
-    # =====================================================
-    # DELETE OLD NOW PLAYING MESSAGE
-    # =====================================================
+    # Remove old NOW PLAYING message.
     old_ui_id = ui_messages.pop(chat_id, None)
 
     if old_ui_id:
@@ -354,14 +350,11 @@ async def pytgcalls_update_handler(update):
         except Exception:
             pass
 
-    # =====================================================
-    # GET QUEUE
-    # =====================================================
     queue = queues.get(chat_id, [])
 
-    # =====================================================
+    # ========================================================
     # QUEUE EMPTY -> LEAVE VC
-    # =====================================================
+    # ========================================================
     if not queue:
         queues.pop(chat_id, None)
 
@@ -373,13 +366,11 @@ async def pytgcalls_update_handler(update):
 
         try:
             await calls.leave_call(chat_id)
-
             print(
                 "👋 LEFT VC:",
                 chat_id,
                 flush=True
             )
-
         except Exception as leave_error:
             print(
                 "⚠️ LEAVE VC ERROR:",
@@ -389,14 +380,12 @@ async def pytgcalls_update_handler(update):
 
         return
 
-    # =====================================================
+    # ========================================================
     # AUTO NEXT
-    # =====================================================
+    # ========================================================
     next_item = queue.pop(0)
 
-    if queue:
-        queues[chat_id] = queue
-    else:
+    if not queue:
         queues.pop(chat_id, None)
 
     print(
@@ -406,8 +395,8 @@ async def pytgcalls_update_handler(update):
     )
 
     try:
-        # Give PyTgCalls a moment to finish the previous stream.
-        await asyncio.sleep(0.5)
+        # Give the previous stream a moment to fully close.
+        await asyncio.sleep(0.8)
 
         await start_song(
             chat_id,
@@ -427,7 +416,7 @@ async def pytgcalls_update_handler(update):
             flush=True
         )
 
-        # If next song cannot start, clean its downloaded file.
+        # Clean failed next-song file.
         media_path = next_item.get("path")
 
         if media_path:
@@ -436,7 +425,8 @@ async def pytgcalls_update_handler(update):
             except Exception:
                 pass
 
-        # Try leaving VC instead of getting stuck.
+        # If next song cannot start, don't leave the bot
+        # permanently stuck in the voice chat.
         try:
             await calls.leave_call(chat_id)
         except Exception:
@@ -531,6 +521,28 @@ async def _handle_play(event, video=False):
                 download_audio,
                 query
             )
+
+        # ====================================================
+        # MAXIMUM SONG LENGTH: 60 MINUTES
+        # ====================================================
+        try:
+            song_duration = int(duration or 0)
+        except Exception:
+            song_duration = 0
+
+        if song_duration > MAX_SONG_DURATION:
+            try:
+                Path(path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+            await status.edit(
+                "❌ **Song too long.**\n\n"
+                "⏱️ Maximum allowed duration is **60 minutes**.\n"
+                f"🎵 This song: `{format_time(song_duration)}`\n\n"
+                "🎧 **AJ Music Bot**"
+            )
+            return
 
         sender = await event.get_sender()
 
@@ -873,6 +885,23 @@ async def main():
         "👤 Assistant started.",
         flush=True
     )
+
+    # Populate Telethon's entity cache for the assistant account.
+    # This prevents:
+    # "Could not find the input entity for PeerChannel"
+    try:
+        await assistant.get_dialogs()
+
+        print(
+            "✅ Assistant dialogs/entity cache loaded.",
+            flush=True
+        )
+    except Exception as entity_error:
+        print(
+            "⚠️ Assistant entity cache load failed:",
+            repr(entity_error),
+            flush=True
+        )
 
     await calls.start()
 
